@@ -50,4 +50,12 @@ print (json.loads(data))
 assert json.loads(data)["token"] != 'ABCD0123'
 assert r.get('expired').decode() == "False"
 
+# Refresh token with invalid one
+r.set('token', 'QWER5555')
+r.set('expired', True)
+conn.request("POST", "/refresh", "", { 'Authorization': 'ABCD0123' })
+response = conn.getresponse()
+assert response.status == 403
+assert r.get('token').decode() == "QWER5555"
+
 print ("OK")
