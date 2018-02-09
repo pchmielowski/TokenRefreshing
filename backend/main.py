@@ -1,10 +1,15 @@
 from flask import Flask, request, jsonify
 import redis
 import json
+import string
+import random
 
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 app = Flask(__name__)
+
+def newToken():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
 @app.route("/data", methods=['GET'])
 def data():
@@ -19,4 +24,13 @@ def refresh():
     if request.headers.get('Authorization') != r.get('token').decode('utf-8'):
         return "Invalid token", 403
     r.set('expired', False)
-    return jsonify({ "token" : "Piotrek" })
+    token = newToken()
+    r.set('token', token)
+    return jsonify({ "token" : token })
+
+@app.route("/login", methods=['POST'])
+def login():
+    r.set('expired', False)
+    token = newToken()
+    r.set('token', token)
+    return jsonify({ "token" : token })

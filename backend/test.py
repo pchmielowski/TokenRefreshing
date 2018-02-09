@@ -47,4 +47,14 @@ response = conn.getresponse()
 assert response.status == 403
 assert r.get('token').decode() == "QWER5555"
 
+# Login
+r.set('token', 'ABCD0123')
+r.set('expired', True)
+conn.request("POST", "/login")
+response = conn.getresponse()
+assert response.status == 200
+data = response.read().decode("utf-8")
+assert r.get('token').decode() == json.loads(data)["token"]
+assert r.get('expired').decode() == "False"
+
 print ("OK")
