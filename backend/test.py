@@ -39,4 +39,15 @@ conn.request("GET", "/data", "", { 'Authorization': 'ABCD0123' })
 response = conn.getresponse()
 assert response.status == 403, response.status
 
+# Refresh token
+r.set('token', 'ABCD0123')
+r.set('expired', True)
+conn.request("POST", "/refresh", "", { 'Authorization': 'ABCD0123' })
+response = conn.getresponse()
+assert response.status == 200
+data = response.read().decode("utf-8")
+print (json.loads(data))
+assert json.loads(data)["token"] != 'ABCD0123'
+assert r.get('expired').decode() == "False"
+
 print ("OK")
