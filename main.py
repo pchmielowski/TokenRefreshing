@@ -8,3 +8,7 @@ app = Flask(__name__)
 @app.route("/")
 def hello():
     return r.get('foo')
+
+@app.route("/login", methods=['POST'])
+def login():
+    return "OK"

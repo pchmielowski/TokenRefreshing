@@ -5,6 +5,9 @@ import time
 
 conn = http.client.HTTPConnection("localhost:5000")
 
-conn.request("GET", "/")
+conn.request("POST", "/login", 
+    json.dumps({ "email": "admin@example.com" }))
 
-print (conn.getresponse().read().decode("utf-8"))
+assert conn.getresponse().read().decode("utf-8") == "OK"
+
+print ("OK")
