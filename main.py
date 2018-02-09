@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, request, jsonify
 import redis
 import json
 
@@ -10,6 +10,9 @@ app = Flask(__name__)
 def hello():
     return r.get('foo')
 
-@app.route("/login", methods=['POST'])
+@app.route("/data", methods=['GET'])
 def login():
-    return jsonify({ "token" : "ABCD" })
+    # token = request.headers.get('Authorization')
+    if r.get('valid') == b'True':
+        return jsonify({ "name" : "Piotrek" })
+    return "", 401
