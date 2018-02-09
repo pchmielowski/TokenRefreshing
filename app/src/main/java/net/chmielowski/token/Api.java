@@ -12,6 +12,9 @@ interface Api {
     @POST("/login")
     Single<Response<Token>> login();
 
+    @POST("/refresh")
+    Single<Response<Token>> refresh();
+
     class Data {
         String name;
     }
