@@ -12,6 +12,10 @@ import static org.junit.Assert.*;
 public class ExampleUnitTest {
     @Test
     public void addition_isCorrect() throws Exception {
-        assertEquals(4, 2 + 2);
+        assertEquals("Some text", transform("Some text (more text)"));
+    }
+
+    private String transform(String input) {
+        return input.split(" \\(")[0];
     }
 }

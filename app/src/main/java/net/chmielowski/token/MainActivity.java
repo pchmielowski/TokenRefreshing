@@ -12,6 +12,8 @@ import com.google.gson.GsonBuilder;
 import java.io.IOException;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
@@ -47,21 +49,29 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.get_data)
                 .setOnClickListener(view -> api.data()
+                        .doOnSubscribe(__ -> appendNewLine())
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe());
 
         findViewById(R.id.login)
                 .setOnClickListener(view -> api.login()
+                        .doOnSubscribe(__ -> appendNewLine())
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(response -> this.setToken(response.body().token)));
     }
 
+    private void appendNewLine() {
+        new Handler(getMainLooper())
+                .post(() -> this.<TextView>findViewById(R.id.text)
+                        .append(String.format("%n")));
+    }
+
     private void setText(String text) {
         new Handler(getMainLooper())
                 .post(() -> this.<TextView>findViewById(R.id.text)
-                        .append(String.format("%s%n", text)));
+                        .append(String.format("%s%n", text.split(" \\(")[0])));
     }
 
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
