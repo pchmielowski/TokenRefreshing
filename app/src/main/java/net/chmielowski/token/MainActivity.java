@@ -60,7 +60,6 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.login)
                 .setOnClickListener(view -> api.login()
-                        .doOnSubscribe(__ -> appendNewLine())
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(response -> this.setToken(response.body().token)));
@@ -69,18 +68,11 @@ public class MainActivity extends AppCompatActivity {
     private void getData() {
         IntStream.rangeClosed(1, 5)
                 .forEach(__ -> api.data()
-                        .doOnSubscribe(___ -> appendNewLine())
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .map(___ -> "Ignoring value...")
                         .onErrorReturnItem("Ignoring value...")
                         .subscribe());
-    }
-
-    private void appendNewLine() {
-        new Handler(getMainLooper())
-                .post(() -> this.<TextView>findViewById(R.id.text)
-                        .append(String.format("%n")));
     }
 
     private void setText(String text) {
@@ -93,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
         final Request.Builder builder = chain.request().newBuilder();
         final Response response = chain.proceed(builder.build());
         if (response.code() == 401) {
+            setText("<-- 401");
             tokenExpired = true;
             doRefreshToken();
             builder.header("Authorization", this.getToken());
