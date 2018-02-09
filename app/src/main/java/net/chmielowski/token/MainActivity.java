@@ -1,6 +1,7 @@
 package net.chmielowski.token;
 
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -37,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
         api = new Retrofit.Builder()
                 .baseUrl("http://10.0.2.2:5000/")
                 .client(new OkHttpClient.Builder()
-                        .addInterceptor(new HttpLoggingInterceptor()
+                        .addInterceptor(new HttpLoggingInterceptor(this::setText)
                                 .setLevel(HttpLoggingInterceptor.Level.BASIC))
                         .addInterceptor(this::addToken)
                         .addInterceptor(this::refreshToken)
@@ -50,10 +51,9 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.get_data)
                 .setOnClickListener(view -> api.data()
-                        .doOnSubscribe(__ -> setText(null))
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(response -> setText(String.valueOf(response.code()))));
+                        .subscribe());
 
         findViewById(R.id.login)
                 .setOnClickListener(view -> api.login()
@@ -63,8 +63,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setText(String text) {
-        ((TextView) findViewById(R.id.text))
-                .setText(text);
+        new Handler(getMainLooper())
+                .post(() -> this.<TextView>findViewById(R.id.text)
+                        .append(String.format("%s%n", text)));
     }
 
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
