@@ -6,13 +6,10 @@ r = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 app = Flask(__name__)
 
-@app.route("/")
-def hello():
-    return r.get('foo')
-
 @app.route("/data", methods=['GET'])
 def login():
-    # token = request.headers.get('Authorization')
-    if r.get('valid') == b'True':
-        return jsonify({ "name" : "Piotrek" })
-    return "", 401
+    if request.headers.get('Authorization') != r.get('token').decode('utf-8'):
+        return "Invalid token", 403
+    if r.get('expired') == b'True':
+        return "Expired token", 401
+    return jsonify({ "name" : "Piotrek" })
