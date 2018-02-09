@@ -7,16 +7,6 @@ import redis
 r = redis.StrictRedis(host='localhost', port=6379, db=0)
 conn = http.client.HTTPConnection("localhost:5000")
 
-# conn.request("POST", "/login", 
-#     json.dumps({ "email": "admin@example.com",
-#                 "password": "dolphin" }))
-
-# response = conn.getresponse()
-# assert response.status == 200
-
-# data = response.read().decode("utf-8")
-# assert json.loads(data)["token"] == "ABCD"
-
 
 # Valid token - 200 OK
 r.set('token', 'ABCD0123')
@@ -46,7 +36,6 @@ conn.request("POST", "/refresh", "", { 'Authorization': 'ABCD0123' })
 response = conn.getresponse()
 assert response.status == 200
 data = response.read().decode("utf-8")
-print (json.loads(data))
 assert json.loads(data)["token"] != 'ABCD0123'
 assert r.get('expired').decode() == "False"
 
