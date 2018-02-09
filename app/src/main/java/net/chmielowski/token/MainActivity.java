@@ -2,6 +2,7 @@ package net.chmielowski.token;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.TextView;
 
 import com.google.gson.GsonBuilder;
@@ -39,12 +40,18 @@ public class MainActivity extends AppCompatActivity {
                 .build()
                 .create(Api.class);
 
-        findViewById(R.id.button)
+        findViewById(R.id.get_data)
                 .setOnClickListener(view -> api.data()
                         .doOnSubscribe(__ -> setText(null))
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(response -> setText(String.valueOf(response.code()))));
+
+        findViewById(R.id.login)
+                .setOnClickListener(view -> api.login()
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(response -> Log.d("pchm", response.body().token)));
     }
 
     private void setText(String text) {
