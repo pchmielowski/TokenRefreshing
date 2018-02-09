@@ -6,8 +6,13 @@ import time
 conn = http.client.HTTPConnection("localhost:5000")
 
 conn.request("POST", "/login", 
-    json.dumps({ "email": "admin@example.com" }))
+    json.dumps({ "email": "admin@example.com",
+                "password": "dolphin" }))
 
-assert conn.getresponse().read().decode("utf-8") == "OK"
+response = conn.getresponse()
+assert response.status == 200
+
+data = response.read().decode("utf-8")
+assert json.loads(data)["token"] == "ABCD"
 
 print ("OK")
