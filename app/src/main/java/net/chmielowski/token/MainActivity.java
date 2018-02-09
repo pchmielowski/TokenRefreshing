@@ -1,7 +1,8 @@
 package net.chmielowski.token;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.widget.TextView;
 
@@ -10,8 +11,6 @@ import com.google.gson.GsonBuilder;
 import java.io.IOException;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
@@ -22,6 +21,9 @@ import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
+
+    @Nullable
+    private String token;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
                 .setOnClickListener(view -> api.login()
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(response -> Log.d("pchm", response.body().token)));
+                        .subscribe(response -> this.token = response.body().token));
     }
 
     private void setText(String text) {
@@ -60,9 +62,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Response addToken(Interceptor.Chain chain) throws IOException {
-        return chain.proceed(chain.request()
+        return this.token == null
+                ? chain.proceed(chain.request())
+                : chain.proceed(chain.request()
                 .newBuilder()
-                .header("Authorization", "EME5PA4XRS")
+                .header("Authorization", this.token)
                 .build());
     }
 }
