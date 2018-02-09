@@ -3,6 +3,7 @@ package net.chmielowski.token;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.TextView;
@@ -10,6 +11,8 @@ import android.widget.TextView;
 import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
+import java.util.function.IntConsumer;
+import java.util.stream.IntStream;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.Disposable;
@@ -20,6 +23,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.logging.HttpLoggingInterceptor;
+import retrofit2.Call;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -47,12 +51,12 @@ public class MainActivity extends AppCompatActivity {
                 .build()
                 .create(Api.class);
 
+        findViewById(R.id.clear)
+                .setOnClickListener(view -> this.<TextView>findViewById(R.id.text)
+                        .setText(null));
+
         findViewById(R.id.get_data)
-                .setOnClickListener(view -> api.data()
-                        .doOnSubscribe(__ -> appendNewLine())
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe());
+                .setOnClickListener(view -> getData());
 
         findViewById(R.id.login)
                 .setOnClickListener(view -> api.login()
@@ -60,6 +64,17 @@ public class MainActivity extends AppCompatActivity {
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(response -> this.setToken(response.body().token)));
+    }
+
+    private void getData() {
+        IntStream.rangeClosed(1, 5)
+                .forEach(__ -> api.data()
+                        .doOnSubscribe(___ -> appendNewLine())
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .map(___ -> "Ignoring value...")
+                        .onErrorReturnItem("Ignoring value...")
+                        .subscribe());
     }
 
     private void appendNewLine() {
