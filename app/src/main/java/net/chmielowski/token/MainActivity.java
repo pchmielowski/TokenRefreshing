@@ -2,21 +2,22 @@ package net.chmielowski.token;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
+import android.widget.TextView;
 
 import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
-import java.util.Locale;
 
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
 import okhttp3.logging.HttpLoggingInterceptor;
-import retrofit2.Call;
-import retrofit2.Callback;
 import retrofit2.Retrofit;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
@@ -33,22 +34,22 @@ public class MainActivity extends AppCompatActivity {
                                 .setLevel(HttpLoggingInterceptor.Level.BODY))
                         .addInterceptor(this::addToken)
                         .build())
+                .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                 .addConverterFactory(GsonConverterFactory.create(new GsonBuilder().create()))
                 .build()
                 .create(Api.class);
 
         findViewById(R.id.button)
-                .setOnClickListener(view -> api.data().enqueue(new Callback<retrofit2.Response<Api.Data>>() {
-                    @Override
-                    public void onResponse(Call<retrofit2.Response<Api.Data>> call, retrofit2.Response<retrofit2.Response<Api.Data>> response) {
-                        Log.d("pchm", "MainActivity::onResponse");
-                    }
+                .setOnClickListener(view -> api.data()
+                        .doOnSubscribe(__ -> setText(null))
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(response -> setText(String.valueOf(response.code()))));
+    }
 
-                    @Override
-                    public void onFailure(Call<retrofit2.Response<Api.Data>> call, Throwable t) {
-                        Log.d("pchm", "MainActivity::onFailure");
-                    }
-                }));
+    private void setText(String text) {
+        ((TextView) findViewById(R.id.text))
+                .setText(text);
     }
 
     private Response addToken(Interceptor.Chain chain) throws IOException {
