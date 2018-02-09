@@ -3,7 +3,6 @@ package net.chmielowski.token;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.TextView;
@@ -11,19 +10,17 @@ import android.widget.TextView;
 import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
-import java.util.function.IntConsumer;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.stream.IntStream;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.logging.HttpLoggingInterceptor;
-import retrofit2.Call;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -31,6 +28,9 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class MainActivity extends AppCompatActivity {
 
     private Api api;
+    private boolean isRefreshing;
+    private final Deque<Request> queue = new LinkedList<>();
+    private boolean tokenExpired;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -93,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
         final Request.Builder builder = chain.request().newBuilder();
         final Response response = chain.proceed(builder.build());
         if (response.code() == 401) {
+            tokenExpired = true;
             doRefreshToken();
             builder.header("Authorization", this.getToken());
             return chain.proceed(builder.build());
@@ -100,11 +101,15 @@ public class MainActivity extends AppCompatActivity {
         return response;
     }
 
-    private void doRefreshToken() {
+    private synchronized void doRefreshToken() {
+        if (!tokenExpired) {
+            return;
+        }
         this.setToken(api.refresh()
                 .blockingGet()
                 .body()
                 .token);
+        tokenExpired = false;
     }
 
     private Response addToken(Interceptor.Chain chain) throws IOException {
