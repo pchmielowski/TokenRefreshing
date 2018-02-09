@@ -1,10 +1,10 @@
 package net.chmielowski.token;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.widget.TextView;
 
 import com.google.gson.GsonBuilder;
@@ -13,12 +13,10 @@ import java.io.IOException;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
-import okhttp3.Authenticator;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import okhttp3.Route;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
@@ -26,8 +24,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
 
-    @Nullable
-    private String token;
     private Api api;
 
     @Override
@@ -59,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
                 .setOnClickListener(view -> api.login()
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(response -> this.token = response.body().token));
+                        .subscribe(response -> this.setToken(response.body().token)));
     }
 
     private void setText(String text) {
@@ -73,25 +69,42 @@ public class MainActivity extends AppCompatActivity {
         final Response response = chain.proceed(builder.build());
         if (response.code() == 401) {
             doRefreshToken();
-            builder.header("Authorization", this.token);
+            builder.header("Authorization", this.getToken());
             return chain.proceed(builder.build());
         }
         return response;
     }
 
     private void doRefreshToken() {
-        this.token = api.refresh()
+        this.setToken(api.refresh()
                 .blockingGet()
                 .body()
-                .token;
+                .token);
     }
 
     private Response addToken(Interceptor.Chain chain) throws IOException {
-        return this.token == null
+        return this.getToken() == null
                 ? chain.proceed(chain.request())
                 : chain.proceed(chain.request()
                 .newBuilder()
-                .header("Authorization", this.token)
+                .header("Authorization", this.getToken())
                 .build());
+    }
+
+    @Nullable
+    private String getToken() {
+        return getSharedPreferences()
+                .getString("token", null);
+    }
+
+    private void setToken(@Nullable String token) {
+        getSharedPreferences()
+                .edit()
+                .putString("token", token)
+                .apply();
+    }
+
+    private SharedPreferences getSharedPreferences() {
+        return getSharedPreferences("default", MODE_PRIVATE);
     }
 }
