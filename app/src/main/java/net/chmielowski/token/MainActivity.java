@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
                 .baseUrl("http://10.0.2.2:5000/")
                 .client(new OkHttpClient.Builder()
                         .addInterceptor(new HttpLoggingInterceptor()
-                                .setLevel(HttpLoggingInterceptor.Level.BODY))
+                                .setLevel(HttpLoggingInterceptor.Level.BASIC))
                         .addInterceptor(this::addToken)
                         .addInterceptor(this::refreshToken)
                         .build())
@@ -79,10 +79,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void doRefreshToken() {
-        api.refresh()
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(response -> this.token = response.body().token);
+        this.token = api.refresh()
+                .blockingGet()
+                .body()
+                .token;
     }
 
     private Response addToken(Interceptor.Chain chain) throws IOException {
