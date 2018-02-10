@@ -78,27 +78,46 @@ public class MainActivity extends AppCompatActivity {
                         .subscribe());
     }
 
-    private void appendText(SpannableStringBuilder text) {
-        new Handler(getMainLooper())
-                .post(() -> this.<TextView>findViewById(R.id.text)
-                        .append(text));
+    private class Logger {
+        private void appendText(SpannableStringBuilder text) {
+            new Handler(getMainLooper())
+                    .post(() -> MainActivity.this.<TextView>findViewById(R.id.text)
+                            .append(text));
+        }
+
+        private void log(int color, String format, Object... args) {
+            final SpannableStringBuilder builder = new SpannableStringBuilder();
+            builder.append(String.format(format, args));
+            builder.setSpan(new ForegroundColorSpan(color), 0, builder.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            appendText(builder);
+        }
+
+        private void onResponse(Request s, int color, Response response) {
+            log(color, "<-- /%s %d%n", s.url().toString().split("5000/")[1], response.code());
+        }
+
+        private void onRequest(Request request, int color, String note) {
+            log(color, "--> /%s %s%n  %s%n", request.url().toString().split("5000/")[1], note, request.header(AUTHORIZATION));
+        }
     }
+
+    Logger logger = new Logger();
 
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
         final Request request = chain.request();
         final int color = generateColor();
-        onRequest(request, color, "");
+        logger.onRequest(request, color, "");
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
-        onResponse(request, color, response);
+        logger.onResponse(request, color, response);
         if (response.code() == 401) {
             tokenExpired = true;
             doRefreshToken(color);
             builder.header(AUTHORIZATION, token());
             final Request updatedRequest = builder.build();
-            onRequest(updatedRequest, color, "(retry)");
+            logger.onRequest(updatedRequest, color, "(retry)");
             final Response updatedResponse = chain.proceed(updatedRequest);
-            onResponse(updatedRequest, color, updatedResponse);
+            logger.onResponse(updatedRequest, color, updatedResponse);
             return updatedResponse;
         }
         if (response.code() == 403) {
@@ -112,14 +131,6 @@ public class MainActivity extends AppCompatActivity {
         return response;
     }
 
-    private void onResponse(Request s, int color, Response response) {
-        log(color, "<-- /%s %d%n", s.url().toString().split("5000/")[1], response.code());
-    }
-
-    private void onRequest(Request request, int color, String note) {
-        log(color, "--> /%s %s%n  %s%n", request.url().toString().split("5000/")[1], note, request.header(AUTHORIZATION));
-    }
-
     private int generateColor() {
         final Random random = new Random();
         final int bound = 0xFF;
@@ -127,14 +138,6 @@ public class MainActivity extends AppCompatActivity {
         final int g = random.nextInt(bound);
         final int b = random.nextInt(bound);
         return Color.rgb(r, g, b);
-    }
-
-
-    private void log(int color, String format, Object... args) {
-        final SpannableStringBuilder builder = new SpannableStringBuilder();
-        builder.append(String.format(format, args));
-        builder.setSpan(new ForegroundColorSpan(color), 0, builder.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-        appendText(builder);
     }
 
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
@@ -150,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
         if (!tokenExpired) {
             return;
         }
-        log(color, "Triggering refresh\n");
+        logger.log(color, "Triggering refresh\n");
         this.storeToken(api.refresh()
                 .blockingGet()
                 .body()
