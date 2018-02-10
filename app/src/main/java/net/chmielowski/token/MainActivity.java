@@ -10,6 +10,9 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
+import android.view.View;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.google.gson.GsonBuilder;
@@ -59,7 +62,11 @@ public class MainActivity extends AppCompatActivity {
                         .setText(null));
 
         findViewById(R.id.get_data)
-                .setOnClickListener(view -> getData());
+                .setOnClickListener(view -> {
+                    this.<TextView>findViewById(R.id.text)
+                            .setText(null);
+                    getData();
+                });
 
         findViewById(R.id.login)
                 .setOnClickListener(view -> api.login()
@@ -81,8 +88,12 @@ public class MainActivity extends AppCompatActivity {
     private class Logger {
         private void appendText(SpannableStringBuilder text) {
             new Handler(getMainLooper())
-                    .post(() -> MainActivity.this.<TextView>findViewById(R.id.text)
-                            .append(text));
+                    .post(() -> {
+                        MainActivity.this.<TextView>findViewById(R.id.text)
+                                .append(text);
+                        MainActivity.this.<ScrollView>findViewById(R.id.scroll)
+                                .fullScroll(View.FOCUS_DOWN);
+                    });
         }
 
         private void log(int color, String format, Object... args) {
@@ -92,8 +103,24 @@ public class MainActivity extends AppCompatActivity {
             appendText(builder);
         }
 
+        private void log403(int color, String format, Object... args) {
+            final SpannableStringBuilder builder = new SpannableStringBuilder();
+            builder.append(String.format(format, args));
+            builder.setSpan(new ForegroundColorSpan(color), 0, builder.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            final int length = builder.length();
+            builder.append("403 !!!\n");
+            builder.setSpan(new ForegroundColorSpan(0xFFFF0000), length, builder.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            builder.setSpan(new StyleSpan(android.graphics.Typeface.BOLD), length, builder.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            appendText(builder);
+        }
+
         private void onResponse(Request s, int color, Response response) {
-            log(color, "<-- /%s %d%n", s.url().toString().split("5000/")[1], response.code());
+            final int code = response.code();
+            if (code == 403) {
+                log403(color, "<-- /%s ", s.url().toString().split("5000/")[1]);
+            } else {
+                log(color, "<-- /%s %d%n", s.url().toString().split("5000/")[1], code);
+            }
         }
 
         private void onRequest(Request request, int color, String note) {
@@ -121,7 +148,9 @@ public class MainActivity extends AppCompatActivity {
             return updatedResponse;
         }
         if (response.code() == 403) {
-            if (sentWithOldToken(request.header(AUTHORIZATION))) {
+            final boolean sentWithOldToken = sentWithOldToken(request.header(AUTHORIZATION));
+            logger.log(color, String.format("sentWithOldToken = %s%n", sentWithOldToken));
+            if (sentWithOldToken) {
                 return retryWithNewToken(chain, builder);
             } else {
                 // Logout?
