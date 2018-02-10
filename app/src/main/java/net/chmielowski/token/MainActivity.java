@@ -38,8 +38,8 @@ public class MainActivity extends AppCompatActivity {
         api = new Retrofit.Builder()
                 .baseUrl("http://10.0.2.2:5000/")
                 .client(new OkHttpClient.Builder()
-                        .addInterceptor(new HttpLoggingInterceptor(this::appendText)
-                                .setLevel(HttpLoggingInterceptor.Level.BASIC))
+//                        .addInterceptor(new HttpLoggingInterceptor(this::appendText)
+//                                .setLevel(HttpLoggingInterceptor.Level.BASIC))
                         .addInterceptor(this::addToken)
                         .addInterceptor(this::refreshToken)
                         .build())
@@ -85,17 +85,18 @@ public class MainActivity extends AppCompatActivity {
         final Response response = chain.proceed(builder.build());
 
         if (response.code() == 401) {
-            appendText("<--    *** 401 ***");
+//            appendText("<--    *** 401 ***");
             tokenExpired = true;
             doRefreshToken();
             builder.header("Authorization", this.getToken());
             return chain.proceed(builder.build());
         }
         if (response.code() == 403) {
-            appendText("<--    *** 403 ***");
+            appendText("<--    *** 403 ***" + request.url());
             if (sentWithOldToken(request.header("Authorization"))) {
                 return retryWithNewToken(chain, builder);
             } else {
+                appendText("403 for current token");
                 // Logout?
                 throw new RuntimeException("403 for current token");
             }
@@ -109,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean sentWithOldToken(String sent) {
-        return !Objects.equals(sent, getToken());
+        return !Objects.equals(Objects.nonNull(sent), getToken());
     }
 
     private synchronized void doRefreshToken() {
