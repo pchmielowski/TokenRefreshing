@@ -23,12 +23,22 @@
 
     <Button
         android:id="@+id/clear"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Clear"
         app:layout_constraintBottom_toTopOf="@id/get_data"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent" />
+        app:layout_constraintLeft_toLeftOf="parent" />
+
+    <EditText
+        android:id="@+id/repetition"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Repetitions"
+        android:inputType="number"
+        app:layout_constraintBottom_toBottomOf="@id/clear"
+        app:layout_constraintLeft_toRightOf="@id/clear"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="@id/clear" />
 
     <Button
         android:id="@+id/get_data"

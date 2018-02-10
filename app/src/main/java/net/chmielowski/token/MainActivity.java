@@ -66,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getData() {
-        IntStream.rangeClosed(1, 5)
+        IntStream.rangeClosed(1, Integer.parseInt(String.valueOf(((TextView) findViewById(R.id.repetition)).getText())))
                 .forEach(__ -> api.data()
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
