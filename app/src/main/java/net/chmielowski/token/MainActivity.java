@@ -6,12 +6,16 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.ForegroundColorSpan;
 import android.widget.TextView;
 
 import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Random;
 import java.util.stream.IntStream;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -73,35 +77,46 @@ public class MainActivity extends AppCompatActivity {
                         .subscribe());
     }
 
-    private void appendText(String text) {
+    private void appendText(SpannableStringBuilder text) {
         new Handler(getMainLooper())
                 .post(() -> this.<TextView>findViewById(R.id.text)
-                        .append(String.format("%s%n", text.split(" \\(")[0])));
+                        .append(text));
     }
 
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
         final Request request = chain.request();
+        final int color = generateColor();
+        log(color, "--> /%s%n  %s%n", request.url().toString().split("5000/")[1], request.header(AUTHORIZATION));
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
-
+        log(color, "<-- /%s %d%n", request.url().toString().split("5000/")[1], response.code());
         if (response.code() == 401) {
-//            appendText("<--    *** 401 ***");
             tokenExpired = true;
             doRefreshToken();
             builder.header(AUTHORIZATION, token());
             return chain.proceed(builder.build());
         }
         if (response.code() == 403) {
-            appendText("<--    *** 403 ***" + request.url());
             if (sentWithOldToken(request.header(AUTHORIZATION))) {
                 return retryWithNewToken(chain, builder);
             } else {
-                appendText("403 for current token");
                 // Logout?
                 throw new RuntimeException("403 for current token");
             }
         }
         return response;
+    }
+
+    private int generateColor() {
+        int[] colors = {0xffaa0000, 0xffaaaa00, 0xff00aa00, 0xff00aaaa, 0xff0000aa, 0xffaa00aa};
+        return colors[new Random().nextInt(colors.length)];
+    }
+
+    private void log(int color, String format, Object... args) {
+        final SpannableStringBuilder builder = new SpannableStringBuilder();
+        builder.append(String.format(format, args));
+        builder.setSpan(new ForegroundColorSpan(color), 0, builder.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        appendText(builder);
     }
 
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
