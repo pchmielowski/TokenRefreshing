@@ -10,7 +10,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
-import android.util.Log;
 import android.widget.TextView;
 
 import com.google.gson.GsonBuilder;
@@ -88,15 +87,19 @@ public class MainActivity extends AppCompatActivity {
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
         final Request request = chain.request();
         final int color = generateColor();
-        log(color, "--> /%s%n  %s%n", request.url().toString().split("5000/")[1], request.header(AUTHORIZATION));
+        onRequest(request, color, "");
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
-        log(color, "<-- /%s %d%n", request.url().toString().split("5000/")[1], response.code());
+        onResponse(request, color, response);
         if (response.code() == 401) {
             tokenExpired = true;
-            doRefreshToken();
+            doRefreshToken(color);
             builder.header(AUTHORIZATION, token());
-            return chain.proceed(builder.build());
+            final Request updatedRequest = builder.build();
+            onRequest(updatedRequest, color, "(retry)");
+            final Response updatedResponse = chain.proceed(updatedRequest);
+            onResponse(updatedRequest, color, updatedResponse);
+            return updatedResponse;
         }
         if (response.code() == 403) {
             if (sentWithOldToken(request.header(AUTHORIZATION))) {
@@ -107,6 +110,14 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return response;
+    }
+
+    private void onResponse(Request s, int color, Response response) {
+        log(color, "<-- /%s %d%n", s.url().toString().split("5000/")[1], response.code());
+    }
+
+    private void onRequest(Request request, int color, String note) {
+        log(color, "--> /%s %s%n  %s%n", request.url().toString().split("5000/")[1], note, request.header(AUTHORIZATION));
     }
 
     private int generateColor() {
@@ -135,10 +146,11 @@ public class MainActivity extends AppCompatActivity {
         return !Objects.equals(Objects.requireNonNull(sent), token());
     }
 
-    private synchronized void doRefreshToken() {
+    private synchronized void doRefreshToken(int color) {
         if (!tokenExpired) {
             return;
         }
+        log(color, "Triggering refresh\n");
         this.storeToken(api.refresh()
                 .blockingGet()
                 .body()
