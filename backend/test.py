@@ -14,7 +14,6 @@ r.set('expired', False)
 conn.request("GET", "/data", "", { 'Authorization': 'ABCD0123' })
 response = conn.getresponse()
 assert response.status == 200
-assert response.headers["Authorization"] == 'ABCD0123'
 
 # Expired token - 401
 r.set('token', 'ABCD0123')
@@ -22,7 +21,6 @@ r.set('expired', True)
 conn.request("GET", "/data", "", { 'Authorization': 'ABCD0123' })
 response = conn.getresponse()
 assert response.status == 401
-# assert response.headers["Authorization"] == 'ABCD0123'
 
 # Invalid token - 403
 r.set('token', 'QWER5555')

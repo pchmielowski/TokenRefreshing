@@ -17,9 +17,7 @@ def data():
         return "Invalid token", 403
     if r.get('expired') == b'True':
         return "Expired token", 401
-    res = jsonify({ "name" : "Piotrek" })
-    res.headers["Authorization"] = request.headers.get('Authorization')
-    return res
+    return jsonify({ "name" : "Piotrek" })
 
 @app.route("/refresh", methods=['POST'])
 def refresh():
