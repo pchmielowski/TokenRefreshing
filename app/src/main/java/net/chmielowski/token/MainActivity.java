@@ -11,6 +11,7 @@ import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
+import android.util.Log;
 import android.view.View;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -139,7 +140,9 @@ public class MainActivity extends AppCompatActivity {
         flow.onResponse(request, response);
         if (response.code() == 401) {
             tokenExpired = true;
+            final String before = token();
             doRefreshToken(flow);
+            Log.d("pchm", before + " => " + token());
             builder.header(AUTHORIZATION, token());
             final Request updatedRequest = builder.build();
             flow.onRetryRequest(updatedRequest);
@@ -148,11 +151,14 @@ public class MainActivity extends AppCompatActivity {
             return updatedResponse;
         }
         if (response.code() == 403) {
-            final boolean sentWithOldToken = sentWithOldToken(request.header(AUTHORIZATION));
+            final String token = token();
+            final boolean sentWithOldToken = !Objects.equals(Objects.requireNonNull(request.header(AUTHORIZATION)), token);
             if (sentWithOldToken) {
+                logger.log(0xFF008800, "403 for obsolete token\n");
                 return retryWithNewToken(chain, builder);
             } else {
                 // Logout?
+                logger.log(0xFF880000, String.format("403 for current token: %s%n", token));
                 throw new RuntimeException("403 for current token");
             }
         }
@@ -171,10 +177,6 @@ public class MainActivity extends AppCompatActivity {
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
         builder.header(AUTHORIZATION, token());
         return chain.proceed(builder.build());
-    }
-
-    private boolean sentWithOldToken(String sent) {
-        return !Objects.equals(Objects.requireNonNull(sent), token());
     }
 
     private synchronized void doRefreshToken(Flow flow) {
