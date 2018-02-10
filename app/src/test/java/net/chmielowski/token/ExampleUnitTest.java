@@ -1,21 +1,41 @@
 package net.chmielowski.token;
 
+import com.google.gson.GsonBuilder;
+
 import org.junit.Test;
 
-import static org.junit.Assert.*;
+import okhttp3.HttpUrl;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import retrofit2.Retrofit;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
+import retrofit2.converter.gson.GsonConverterFactory;
 
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * @see <a href="http://d.android.com/tools/testing">Testing documentation</a>
- */
 public class ExampleUnitTest {
     @Test
-    public void addition_isCorrect() throws Exception {
-        assertEquals("Some text", transform("Some text (more text)"));
+    public void test() throws Exception {
+        MockWebServer server = new MockWebServer();
+
+        final Api.Data data = new Api.Data();
+        data.name = "Hello";
+        server.enqueue(new MockResponse().setBody("{ \"name\": \"Hello\" }"));
+
+        server.start();
+
+        HttpUrl baseUrl = server.url("/get/");
+
+        new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(new GsonBuilder().create()))
+                .build()
+
+                .create(TestService.class)
+                .get()
+                .test()
+                .assertValue(response -> response.body().equals(data));
+
+        server.shutdown();
     }
 
-    private String transform(String input) {
-        return input.split(" \\(")[0];
-    }
 }
