@@ -1,7 +1,6 @@
 package net.chmielowski.token;
 
 import android.support.annotation.NonNull;
-import android.util.Log;
 
 import com.google.gson.GsonBuilder;
 
@@ -14,6 +13,7 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.logging.HttpLoggingInterceptor;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import retrofit2.Retrofit;
@@ -32,12 +32,16 @@ public class ExampleUnitTest {
     @Test
     public void getsData() throws Exception {
         MockWebServer server = new MockWebServer();
+        server.enqueue(new MockResponse().setResponseCode(401));
+        server.enqueue(new MockResponse().setBody("{ \"token\": \"QWERT\" }"));
         server.enqueue(new MockResponse().setBody("{ \"name\": \"Hello\" }"));
         server.start();
 
-        final Api api = new Retrofit.Builder()
+        api = new Retrofit.Builder()
                 .baseUrl(server.url("/get/"))
                 .client(new OkHttpClient.Builder()
+                        .addInterceptor(new HttpLoggingInterceptor()
+                                .setLevel(HttpLoggingInterceptor.Level.BODY))
                         .addInterceptor(this::addToken)
                         .addInterceptor(this::refreshToken)
                         .build())
@@ -69,9 +73,7 @@ public class ExampleUnitTest {
             }
 
             tokenExpired = true;
-            final String before = token();
             doRefreshToken();
-            Log.d("pchm", before + " => " + token());
             builder.header(AUTHORIZATION, token());
             final Request updatedRequest = builder.build();
             return chain.proceed(updatedRequest);
