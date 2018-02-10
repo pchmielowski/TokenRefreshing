@@ -134,11 +134,9 @@ public class MainActivity extends AppCompatActivity {
         final Flow flow = new Flow();
         final Request request = chain.request();
         final int color = generateColor();
-        logger.onRequest(request, color, "");
         flow.onRequest(request);
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
-        logger.onResponse(request, color, response);
         flow.onResponse(request, response);
         if (response.code() == 401) {
             tokenExpired = true;
@@ -146,15 +144,12 @@ public class MainActivity extends AppCompatActivity {
             builder.header(AUTHORIZATION, token());
             final Request updatedRequest = builder.build();
             flow.onRetryRequest(updatedRequest);
-            logger.onRequest(updatedRequest, color, "(retry)");
             final Response updatedResponse = chain.proceed(updatedRequest);
             flow.onRetryResponse(updatedRequest, updatedResponse);
-            logger.onResponse(updatedRequest, color, updatedResponse);
             return updatedResponse;
         }
         if (response.code() == 403) {
             final boolean sentWithOldToken = sentWithOldToken(request.header(AUTHORIZATION));
-            logger.log(color, String.format("sentWithOldToken = %s%n", sentWithOldToken));
             if (sentWithOldToken) {
                 return retryWithNewToken(chain, builder);
             } else {
