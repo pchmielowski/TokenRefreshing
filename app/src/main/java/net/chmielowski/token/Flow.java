@@ -40,6 +40,10 @@ class Flow {
         events.add(new Event(request, response));
     }
 
+    public void onRefreshTriggered() {
+        // TODO
+    }
+
     class Event {
         final long time;
         @Nullable

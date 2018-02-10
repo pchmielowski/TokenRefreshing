@@ -133,14 +133,13 @@ public class MainActivity extends AppCompatActivity {
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
         final Flow flow = new Flow();
         final Request request = chain.request();
-        final int color = generateColor();
         flow.onRequest(request);
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
         flow.onResponse(request, response);
         if (response.code() == 401) {
             tokenExpired = true;
-            doRefreshToken(color);
+            doRefreshToken(flow);
             builder.header(AUTHORIZATION, token());
             final Request updatedRequest = builder.build();
             flow.onRetryRequest(updatedRequest);
@@ -178,11 +177,11 @@ public class MainActivity extends AppCompatActivity {
         return !Objects.equals(Objects.requireNonNull(sent), token());
     }
 
-    private synchronized void doRefreshToken(int color) {
+    private synchronized void doRefreshToken(Flow flow) {
         if (!tokenExpired) {
             return;
         }
-        logger.log(color, "Triggering refresh\n");
+        flow.onRefreshTriggered();
         this.storeToken(api.refresh()
                 .blockingGet()
                 .body()
