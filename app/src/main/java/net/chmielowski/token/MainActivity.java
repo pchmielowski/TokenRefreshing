@@ -26,6 +26,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String AUTHORIZATION = "Authorization";
     private Api api;
     private boolean tokenExpired;
 
@@ -87,12 +88,12 @@ public class MainActivity extends AppCompatActivity {
 //            appendText("<--    *** 401 ***");
             tokenExpired = true;
             doRefreshToken();
-            builder.header("Authorization", this.token());
+            builder.header(AUTHORIZATION, token());
             return chain.proceed(builder.build());
         }
         if (response.code() == 403) {
             appendText("<--    *** 403 ***" + request.url());
-            if (sentWithOldToken(request.header("Authorization"))) {
+            if (sentWithOldToken(request.header(AUTHORIZATION))) {
                 return retryWithNewToken(chain, builder);
             } else {
                 appendText("403 for current token");
@@ -104,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
-        builder.header("Authorization", token());
+        builder.header(AUTHORIZATION, token());
         return chain.proceed(builder.build());
     }
 
@@ -126,7 +127,7 @@ public class MainActivity extends AppCompatActivity {
     private Response addToken(Interceptor.Chain chain) throws IOException {
         return chain.proceed(chain.request()
                 .newBuilder()
-                .header("Authorization", this.token())
+                .header(AUTHORIZATION, this.token())
                 .build());
     }
 
