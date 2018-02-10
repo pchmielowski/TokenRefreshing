@@ -10,14 +10,15 @@ import org.junit.Test;
 import java.io.IOException;
 import java.util.Objects;
 
-import okhttp3.Headers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.logging.HttpLoggingInterceptor;
+import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -28,16 +29,38 @@ public class ExampleUnitTest {
 
 
     private static final String AUTHORIZATION = "Authorization";
+    private static final String EXPIRED_TOKEN = "ABCD";
+    private static final String REFRESHED_TOKEN = "QWERT";
     private Api api;
     private boolean tokenExpired;
-    private String token = "ABCD";
+    private String token = EXPIRED_TOKEN;
 
     @Test
     public void getsData() throws Exception {
         MockWebServer server = new MockWebServer();
-        server.enqueue(new MockResponse().setResponseCode(401));
-        server.enqueue(new MockResponse().setBody("{ \"token\": \"QWERT\" }"));
-        server.enqueue(new MockResponse().setBody("{ \"name\": \"Hello\" }"));
+
+
+        final Dispatcher dispatcher = new Dispatcher() {
+
+            @Override
+            public MockResponse dispatch(RecordedRequest request) throws InterruptedException {
+                final String path = request.getPath();
+                switch (path) {
+                    case "/data":
+                        if (Objects.equals(request.getHeader(AUTHORIZATION), EXPIRED_TOKEN))
+                            return new MockResponse().setResponseCode(401);
+                        if (Objects.equals(request.getHeader(AUTHORIZATION), REFRESHED_TOKEN))
+                            return new MockResponse().setBody("{ \"name\": \"Hello\" }");
+                        throw new RuntimeException();
+                    case "/refresh":
+                        if (Objects.equals(request.getHeader(AUTHORIZATION), EXPIRED_TOKEN))
+                            return new MockResponse().setBody("{ \"token\": \"" + REFRESHED_TOKEN + "\" }");
+                        throw new RuntimeException();
+                }
+                throw new RuntimeException("Wrong path " + path);
+            }
+        };
+        server.setDispatcher(dispatcher);
         server.start();
 
         api = new Retrofit.Builder()
@@ -62,9 +85,9 @@ public class ExampleUnitTest {
                     return data.equals(response.body());
                 });
 
-        Assert.assertEquals("ABCD", server.takeRequest().getHeader(AUTHORIZATION));
-        Assert.assertEquals("ABCD", server.takeRequest().getHeader(AUTHORIZATION));
-        Assert.assertEquals("QWERT", server.takeRequest().getHeader(AUTHORIZATION));
+        Assert.assertEquals(EXPIRED_TOKEN, server.takeRequest().getHeader(AUTHORIZATION));
+        Assert.assertEquals(EXPIRED_TOKEN, server.takeRequest().getHeader(AUTHORIZATION));
+        Assert.assertEquals(REFRESHED_TOKEN, server.takeRequest().getHeader(AUTHORIZATION));
 
         server.shutdown();
     }
@@ -74,7 +97,7 @@ public class ExampleUnitTest {
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
         if (response.code() == 401) {
-            final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
+            final boolean sentWithOldToken = !Objects.equals(requireNonNull(getToken(request)), token());
             if (sentWithOldToken) {
                 return retryWithNewToken(chain, builder);
             }
@@ -87,7 +110,7 @@ public class ExampleUnitTest {
         }
         if (response.code() == 403) {
             final String token = token();
-            final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token);
+            final boolean sentWithOldToken = !Objects.equals(requireNonNull(getToken(request)), token);
             if (sentWithOldToken) {
                 return retryWithNewToken(chain, builder);
             } else {
@@ -95,6 +118,10 @@ public class ExampleUnitTest {
             }
         }
         return response;
+    }
+
+    private static String getToken(Request request) {
+        return request.header(AUTHORIZATION);
     }
 
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
