@@ -2,6 +2,7 @@ package net.chmielowski.token;
 
 import android.annotation.SuppressLint;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.NonNull;
@@ -9,6 +10,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
+import android.util.Log;
 import android.widget.TextView;
 
 import com.google.gson.GsonBuilder;
@@ -108,9 +110,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private int generateColor() {
-        int[] colors = {0xffaa0000, 0xffaaaa00, 0xff00aa00, 0xff00aaaa, 0xff0000aa, 0xffaa00aa};
-        return colors[new Random().nextInt(colors.length)];
+        final Random random = new Random();
+        final int bound = 0xFF;
+        final int r = random.nextInt(bound);
+        final int g = random.nextInt(bound);
+        final int b = random.nextInt(bound);
+        return Color.rgb(r, g, b);
     }
+
 
     private void log(int color, String format, Object... args) {
         final SpannableStringBuilder builder = new SpannableStringBuilder();
