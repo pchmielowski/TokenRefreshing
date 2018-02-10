@@ -4,7 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.Nullable;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.TextView;
 
@@ -20,7 +20,6 @@ import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
@@ -60,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
                 .setOnClickListener(view -> api.login()
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(response -> this.setToken(response.body().token)));
+                        .subscribe(response -> this.storeToken(response.body().token)));
     }
 
     private void getData() {
@@ -88,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
 //            appendText("<--    *** 401 ***");
             tokenExpired = true;
             doRefreshToken();
-            builder.header("Authorization", this.getToken());
+            builder.header("Authorization", this.token());
             return chain.proceed(builder.build());
         }
         if (response.code() == 403) {
@@ -105,19 +104,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
-        builder.header("Authorization", getToken());
+        builder.header("Authorization", token());
         return chain.proceed(builder.build());
     }
 
     private boolean sentWithOldToken(String sent) {
-        return !Objects.equals(Objects.nonNull(sent), getToken());
+        return !Objects.equals(Objects.requireNonNull(sent), token());
     }
 
     private synchronized void doRefreshToken() {
         if (!tokenExpired) {
             return;
         }
-        this.setToken(api.refresh()
+        this.storeToken(api.refresh()
                 .blockingGet()
                 .body()
                 .token);
@@ -125,22 +124,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private Response addToken(Interceptor.Chain chain) throws IOException {
-        return this.getToken() == null
-                ? chain.proceed(chain.request())
-                : chain.proceed(chain.request()
+        return chain.proceed(chain.request()
                 .newBuilder()
-                .header("Authorization", this.getToken())
+                .header("Authorization", this.token())
                 .build());
     }
 
-    @Nullable
-    private String getToken() {
-        return getSharedPreferences()
-                .getString("token", null);
+    @NonNull
+    private String token() {
+        return Objects.requireNonNull(
+                getSharedPreferences()
+                        .getString("token", null));
     }
 
     @SuppressLint("ApplySharedPref") // Because I want it to be synchronous
-    private void setToken(@Nullable String token) {
+    private void storeToken(@NonNull String token) {
         getSharedPreferences()
                 .edit()
                 .putString("token", token)
