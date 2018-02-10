@@ -49,8 +49,6 @@ public class MainActivity extends AppCompatActivity {
         api = new Retrofit.Builder()
                 .baseUrl("http://10.0.2.2:5000/")
                 .client(new OkHttpClient.Builder()
-//                        .addInterceptor(new HttpLoggingInterceptor(this::appendText)
-//                                .setLevel(HttpLoggingInterceptor.Level.BASIC))
                         .addInterceptor(this::addToken)
                         .addInterceptor(this::refreshToken)
                         .build())
