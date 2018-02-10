@@ -9,6 +9,9 @@ interface Api {
     @GET("/data")
     Single<Response<Data>> data();
 
+    @GET("/data2")
+    Single<Response<Data>> data2();
+
     @POST("/login")
     Single<Response<Token>> login();
 
@@ -16,21 +19,6 @@ interface Api {
     Single<Response<Token>> refresh();
 
     class Data {
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-
-            Data data = (Data) o;
-
-            return name != null ? name.equals(data.name) : data.name == null;
-        }
-
-        @Override
-        public int hashCode() {
-            return name != null ? name.hashCode() : 0;
-        }
-
         String name;
     }
 

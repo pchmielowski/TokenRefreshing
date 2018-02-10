@@ -35,6 +35,7 @@ public class ExampleUnitTest {
     private boolean tokenExpired;
     private String token = EXPIRED_TOKEN;
 
+    @SuppressWarnings("ConstantConditions")
     @Test
     public void getsData() throws Exception {
         MockWebServer server = new MockWebServer();
@@ -51,6 +52,12 @@ public class ExampleUnitTest {
                             return new MockResponse().setResponseCode(401);
                         if (Objects.equals(request.getHeader(AUTHORIZATION), REFRESHED_TOKEN))
                             return new MockResponse().setBody("{ \"name\": \"Hello\" }");
+                        throw new IllegalStateException();
+                    case "/data2":
+                        if (Objects.equals(request.getHeader(AUTHORIZATION), EXPIRED_TOKEN))
+                            return new MockResponse().setResponseCode(401);
+                        if (Objects.equals(request.getHeader(AUTHORIZATION), REFRESHED_TOKEN))
+                            return new MockResponse().setBody("{ \"name\": \"Hello 2\" }");
                         throw new IllegalStateException();
                     case "/refresh":
                         if (Objects.equals(request.getHeader(AUTHORIZATION), EXPIRED_TOKEN))
@@ -77,13 +84,10 @@ public class ExampleUnitTest {
                 .build()
                 .create(Api.class);
 
-        api.data()
-                .test()
-                .assertValue(response -> {
-                    final Api.Data data = new Api.Data();
-                    data.name = "Hello";
-                    return data.equals(response.body());
-                });
+        api.data().test()
+                .assertValue(response -> "Hello".equals(response.body().name));
+        api.data2().test()
+                .assertValue(response -> "Hello 2".equals(response.body().name));
 
         Assert.assertEquals(EXPIRED_TOKEN, server.takeRequest().getHeader(AUTHORIZATION));
         Assert.assertEquals(EXPIRED_TOKEN, server.takeRequest().getHeader(AUTHORIZATION));
