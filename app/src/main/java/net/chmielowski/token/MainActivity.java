@@ -33,6 +33,8 @@ import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import static java.util.Objects.requireNonNull;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String AUTHORIZATION = "Authorization";
@@ -139,6 +141,12 @@ public class MainActivity extends AppCompatActivity {
         final Response response = chain.proceed(builder.build());
         flow.onResponse(request, response);
         if (response.code() == 401) {
+            final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
+            if (sentWithOldToken) {
+                logger.log(0xFF000088, "401 for obsolete token\n");
+                return retryWithNewToken(chain, builder);
+            }
+
             tokenExpired = true;
             final String before = token();
             doRefreshToken(flow);
@@ -152,7 +160,7 @@ public class MainActivity extends AppCompatActivity {
         }
         if (response.code() == 403) {
             final String token = token();
-            final boolean sentWithOldToken = !Objects.equals(Objects.requireNonNull(request.header(AUTHORIZATION)), token);
+            final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token);
             if (sentWithOldToken) {
                 logger.log(0xFF008800, "403 for obsolete token\n");
                 return retryWithNewToken(chain, builder);
@@ -200,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
 
     @NonNull
     private String token() {
-        return Objects.requireNonNull(
+        return requireNonNull(
                 getSharedPreferences()
                         .getString("token", null));
     }
