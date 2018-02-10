@@ -1,5 +1,6 @@
 package net.chmielowski.token;
 
+import android.annotation.SuppressLint;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
@@ -10,8 +11,7 @@ import android.widget.TextView;
 import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
-import java.util.Deque;
-import java.util.LinkedList;
+import java.util.Objects;
 import java.util.stream.IntStream;
 
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
         api = new Retrofit.Builder()
                 .baseUrl("http://10.0.2.2:5000/")
                 .client(new OkHttpClient.Builder()
-                        .addInterceptor(new HttpLoggingInterceptor(this::setText)
+                        .addInterceptor(new HttpLoggingInterceptor(this::appendText)
                                 .setLevel(HttpLoggingInterceptor.Level.BASIC))
                         .addInterceptor(this::addToken)
                         .addInterceptor(this::refreshToken)
@@ -73,23 +73,43 @@ public class MainActivity extends AppCompatActivity {
                         .subscribe());
     }
 
-    private void setText(String text) {
+    private void appendText(String text) {
         new Handler(getMainLooper())
                 .post(() -> this.<TextView>findViewById(R.id.text)
                         .append(String.format("%s%n", text.split(" \\(")[0])));
     }
 
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
-        final Request.Builder builder = chain.request().newBuilder();
+        final Request request = chain.request();
+        final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
+
         if (response.code() == 401) {
-            setText("<-- 401");
+            appendText("<--    *** 401 ***");
             tokenExpired = true;
             doRefreshToken();
             builder.header("Authorization", this.getToken());
             return chain.proceed(builder.build());
         }
+        if (response.code() == 403) {
+            appendText("<--    *** 403 ***");
+            if (sentWithOldToken(request.header("Authorization"))) {
+                return retryWithNewToken(chain, builder);
+            } else {
+                // Logout?
+                throw new RuntimeException("403 for current token");
+            }
+        }
         return response;
+    }
+
+    private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
+        builder.header("Authorization", getToken());
+        return chain.proceed(builder.build());
+    }
+
+    private boolean sentWithOldToken(String sent) {
+        return !Objects.equals(sent, getToken());
     }
 
     private synchronized void doRefreshToken() {
@@ -118,11 +138,12 @@ public class MainActivity extends AppCompatActivity {
                 .getString("token", null);
     }
 
+    @SuppressLint("ApplySharedPref") // Because I want it to be synchronous
     private void setToken(@Nullable String token) {
         getSharedPreferences()
                 .edit()
                 .putString("token", token)
-                .apply();
+                .commit();
     }
 
     private SharedPreferences getSharedPreferences() {

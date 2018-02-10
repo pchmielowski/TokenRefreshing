@@ -35,6 +35,7 @@
         android:layout_height="wrap_content"
         android:hint="Repetitions"
         android:inputType="number"
+        android:text="10"
         app:layout_constraintBottom_toBottomOf="@id/clear"
         app:layout_constraintLeft_toRightOf="@id/clear"
         app:layout_constraintRight_toRightOf="parent"
