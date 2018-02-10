@@ -4,11 +4,13 @@ import android.support.annotation.NonNull;
 
 import com.google.gson.GsonBuilder;
 
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Objects;
 
+import okhttp3.Headers;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -28,6 +30,7 @@ public class ExampleUnitTest {
     private static final String AUTHORIZATION = "Authorization";
     private Api api;
     private boolean tokenExpired;
+    private String token = "ABCD";
 
     @Test
     public void getsData() throws Exception {
@@ -58,6 +61,10 @@ public class ExampleUnitTest {
                     data.name = "Hello";
                     return data.equals(response.body());
                 });
+
+        Assert.assertEquals("ABCD", server.takeRequest().getHeader(AUTHORIZATION));
+        Assert.assertEquals("ABCD", server.takeRequest().getHeader(AUTHORIZATION));
+        Assert.assertEquals("QWERT", server.takeRequest().getHeader(AUTHORIZATION));
 
         server.shutdown();
     }
@@ -116,10 +123,10 @@ public class ExampleUnitTest {
 
     @NonNull
     private String token() {
-        return "ABCD";
+        return token;
     }
 
     private void storeToken(@NonNull String token) {
-        // TODO
+        this.token = token;
     }
 }
