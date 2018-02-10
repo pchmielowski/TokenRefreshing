@@ -131,19 +131,24 @@ public class MainActivity extends AppCompatActivity {
     Logger logger = new Logger();
 
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
+        final Flow flow = new Flow();
         final Request request = chain.request();
         final int color = generateColor();
         logger.onRequest(request, color, "");
+        flow.onRequest(request);
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
         logger.onResponse(request, color, response);
+        flow.onResponse(request, response);
         if (response.code() == 401) {
             tokenExpired = true;
             doRefreshToken(color);
             builder.header(AUTHORIZATION, token());
             final Request updatedRequest = builder.build();
+            flow.onRetryRequest(updatedRequest);
             logger.onRequest(updatedRequest, color, "(retry)");
             final Response updatedResponse = chain.proceed(updatedRequest);
+            flow.onRetryResponse(updatedRequest, updatedResponse);
             logger.onResponse(updatedRequest, color, updatedResponse);
             return updatedResponse;
         }
@@ -160,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
         return response;
     }
 
-    private int generateColor() {
+    static int generateColor() {
         final Random random = new Random();
         final int bound = 0xFF;
         final int r = random.nextInt(bound);
@@ -214,5 +219,12 @@ public class MainActivity extends AppCompatActivity {
 
     private SharedPreferences getSharedPreferences() {
         return getSharedPreferences("default", MODE_PRIVATE);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Recorder.INSTANCE.printGroupingByFlow();
+        Recorder.INSTANCE.printSortedByTime();
     }
 }
