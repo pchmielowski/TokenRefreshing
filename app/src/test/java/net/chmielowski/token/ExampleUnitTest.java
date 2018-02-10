@@ -51,13 +51,13 @@ public class ExampleUnitTest {
                             return new MockResponse().setResponseCode(401);
                         if (Objects.equals(request.getHeader(AUTHORIZATION), REFRESHED_TOKEN))
                             return new MockResponse().setBody("{ \"name\": \"Hello\" }");
-                        throw new RuntimeException();
+                        throw new IllegalStateException();
                     case "/refresh":
                         if (Objects.equals(request.getHeader(AUTHORIZATION), EXPIRED_TOKEN))
                             return new MockResponse().setBody("{ \"token\": \"" + REFRESHED_TOKEN + "\" }");
-                        throw new RuntimeException();
+                        throw new IllegalStateException();
                 }
-                throw new RuntimeException("Wrong path " + path);
+                throw new IllegalStateException();
             }
         };
         server.setDispatcher(dispatcher);
