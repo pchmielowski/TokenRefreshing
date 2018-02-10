@@ -28,8 +28,6 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class MainActivity extends AppCompatActivity {
 
     private Api api;
-    private boolean isRefreshing;
-    private final Deque<Request> queue = new LinkedList<>();
     private boolean tokenExpired;
 
     @Override
