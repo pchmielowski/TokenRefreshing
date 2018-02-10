@@ -64,7 +64,7 @@ public class ExampleUnitTest {
         server.start();
 
         api = new Retrofit.Builder()
-                .baseUrl(server.url("/get/"))
+                .baseUrl(server.url("/"))
                 .client(new OkHttpClient.Builder()
                         .addInterceptor(new HttpLoggingInterceptor()
                                 .setLevel(HttpLoggingInterceptor.Level.BODY))
