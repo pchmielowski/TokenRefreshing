@@ -132,29 +132,19 @@ public class MainActivity extends AppCompatActivity {
     Logger logger = new Logger();
 
     private Response refreshToken(final Interceptor.Chain chain) throws IOException {
-        final Flow flow = new Flow();
         final Request request = chain.request();
-        flow.onRequest(request);
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
-        flow.onResponse(request, response);
         if (response.code() == 401) {
             final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
             if (sentWithOldToken) {
-                logger.log(0xFF000088, "401 for obsolete token\n");
                 return retryWithNewToken(chain, builder);
             }
 
             tokenExpired = true;
-            final String before = token();
-            doRefreshToken(flow);
-            Log.d("pchm", before + " => " + token());
+            doRefreshToken();
             builder.header(AUTHORIZATION, token());
-            final Request updatedRequest = builder.build();
-            flow.onRetryRequest(updatedRequest);
-            final Response updatedResponse = chain.proceed(updatedRequest);
-            flow.onRetryResponse(updatedRequest, updatedResponse);
-            return updatedResponse;
+            return chain.proceed(builder.build());
         }
         if (response.code() == 403) {
             final String token = token();
@@ -165,7 +155,6 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 // Logout?
                 // Call onError
-                logger.log(0xFF880000, String.format("403 for current token!%nActual: %s, expected: %s%n", actual, token));
                 throw new RuntimeException("403 for current token");
             }
         }
@@ -186,11 +175,10 @@ public class MainActivity extends AppCompatActivity {
         return chain.proceed(builder.build());
     }
 
-    private synchronized void doRefreshToken(Flow flow) {
+    private synchronized void doRefreshToken() {
         if (!tokenExpired) {
             return;
         }
-        flow.onRefreshTriggered();
         this.storeToken(api.refresh()
                 .blockingGet()
                 .body()
