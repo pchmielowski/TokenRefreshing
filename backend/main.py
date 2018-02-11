@@ -17,8 +17,10 @@ def newToken():
 def isTokenValid(request) -> bool:
     actual = request.headers.get('Authorization')
     expected = r.get('token').decode()
-    print ("Comparing {} with expected {}".format(actual, expected))
-    return actual == expected
+    valid = actual == expected
+    if not valid:
+        print ("Comparing {} with expected {}".format(actual, expected))
+    return valid
 
 @app.route("/data", methods=['GET'])
 def data():

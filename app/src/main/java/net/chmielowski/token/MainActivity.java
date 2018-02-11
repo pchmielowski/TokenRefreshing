@@ -158,13 +158,14 @@ public class MainActivity extends AppCompatActivity {
         }
         if (response.code() == 403) {
             final String token = token();
-            final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token);
-            if (sentWithOldToken) {
-                logger.log(0xFF008800, "403 for obsolete token\n");
+            final String actual = request.header(AUTHORIZATION);
+            final boolean sentWithOldToken = !Objects.equals(requireNonNull(actual), token);
+            if (sentWithOldToken || tokenExpired) {
                 return retryWithNewToken(chain, builder);
             } else {
                 // Logout?
-                logger.log(0xFF880000, String.format("403 for current token: %s%n", token));
+                // Call onError
+                logger.log(0xFF880000, String.format("403 for current token!%nActual: %s, expected: %s%n", actual, token));
                 throw new RuntimeException("403 for current token");
             }
         }
@@ -213,6 +214,7 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("ApplySharedPref") // Because I want it to be synchronous
     private void storeToken(@NonNull String token) {
+        logger.log(0xFF000055, "Storing token %s", token);
         getSharedPreferences()
                 .edit()
                 .putString("token", token)
