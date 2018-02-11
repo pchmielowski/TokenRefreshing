@@ -183,6 +183,8 @@ public class MainActivity extends AppCompatActivity {
         try {
             this.storeToken(api.refresh().execute().body().body().token);
         } catch (IOException e) {
+            // TODO: rethrow?
+            // TODO: make simulation with throwing fake TimeoutError
             e.printStackTrace();
         } finally {
             // TODO: make sure it has to be set in case of Exception
