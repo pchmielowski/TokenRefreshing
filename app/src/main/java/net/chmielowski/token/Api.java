@@ -1,6 +1,7 @@
 package net.chmielowski.token;
 
 import io.reactivex.Single;
+import retrofit2.Call;
 import retrofit2.Response;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
@@ -16,7 +17,7 @@ interface Api {
     Single<Response<Token>> login();
 
     @POST("/refresh")
-    Single<Response<Token>> refresh();
+    Call<Response<Token>> refresh();
 
     class Data {
         String name;

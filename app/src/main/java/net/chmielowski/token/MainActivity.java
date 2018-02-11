@@ -11,7 +11,6 @@ import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
 import android.text.style.StyleSpan;
-import android.util.Log;
 import android.view.View;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -177,14 +176,11 @@ public class MainActivity extends AppCompatActivity {
         return chain.proceed(builder.build());
     }
 
-    private void doRefreshToken() {
+    private void doRefreshToken() throws IOException {
         if (!tokenExpired) {
             return;
         }
-        this.storeToken(api.refresh()
-                .blockingGet()
-                .body()
-                .token);
+        this.storeToken(api.refresh().execute().body().body().token);
         tokenExpired = false;
     }
 
