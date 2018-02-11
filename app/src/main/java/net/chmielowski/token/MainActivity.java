@@ -176,12 +176,18 @@ public class MainActivity extends AppCompatActivity {
         return chain.proceed(builder.build());
     }
 
-    private void doRefreshToken() throws IOException {
+    private void doRefreshToken() {
         if (!tokenExpired) {
             return;
         }
-        this.storeToken(api.refresh().execute().body().body().token);
-        tokenExpired = false;
+        try {
+            this.storeToken(api.refresh().execute().body().body().token);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            // TODO: make sure it has to be set in case of Exception
+            tokenExpired = false;
+        }
     }
 
     private Response addToken(Interceptor.Chain chain) throws IOException {
