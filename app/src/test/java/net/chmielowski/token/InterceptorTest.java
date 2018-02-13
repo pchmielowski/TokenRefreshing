@@ -62,6 +62,7 @@ public class InterceptorTest {
     }
 
     public void singleRefresh(RefreshingInterceptor interceptor) throws IOException {
+        // Arrange
         Interceptor.Chain chain = mock(Interceptor.Chain.class);
         Request request = createRequest();
         when(chain.request()).thenReturn(request);
@@ -69,8 +70,10 @@ public class InterceptorTest {
                 .thenReturn(createExpiredToken(request))
                 .thenReturn(create200OK(request));
 
+        // Act
         Response response = interceptor.intercept(chain);
 
+        // Assert
         assertThat(response.code(), is(equalTo(200)));
         verify(chain).request();
         verify(chain, times(2)).proceed(any());
