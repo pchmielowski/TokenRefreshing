@@ -20,15 +20,15 @@ import okhttp3.Response;
 import static java.util.Objects.requireNonNull;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.fail;
 
 @RunWith(MockitoJUnitRunner.class)
 public class InterceptorTest {
+    private static final String NEW_TOKEN = "New token";
     private String token = "First token";
 
     @Test
     public void happyPath() throws Exception {
-        Interceptor.Chain chain = Mockito.mock(Interceptor.Chain.class);
+        Interceptor.Chain chain = mock(Interceptor.Chain.class);
         Request request = new Request.Builder()
                 .header("Authorization", "First token")
                 .url("http://example.com")
@@ -38,11 +38,15 @@ public class InterceptorTest {
         Mockito.when(chain.proceed(Mockito.any()))
                 .thenReturn(create200OK(request));
 
-        Response response = new RefreshingInterceptor(Mockito.mock(Token.class)).intercept(chain);
+        Response response = new RefreshingInterceptor(mock(Token.class)).intercept(chain);
         Assert.assertThat(response.code(), is(equalTo(200)));
         Mockito.verify(chain).request();
         Mockito.verify(chain).proceed(Mockito.any());
         Mockito.verifyNoMoreInteractions(chain);
+    }
+
+    private static <T> T mock(Class<T> classToMock) {
+        return Mockito.mock(classToMock);
     }
 
     private static Response create200OK(Request request) {
@@ -56,7 +60,7 @@ public class InterceptorTest {
 
     public void singleRefresh(Token mock) {
         try {
-            Interceptor.Chain chain = Mockito.mock(Interceptor.Chain.class);
+            Interceptor.Chain chain = mock(Interceptor.Chain.class);
             Request request = new Request.Builder()
                     .header("Authorization", "First token")
                     .url("http://example.com")
@@ -72,7 +76,7 @@ public class InterceptorTest {
             Mockito.verify(chain, Mockito.times(2)).proceed(Mockito.any());
             Mockito.verifyNoMoreInteractions(chain);
         } catch (Exception e) {
-            fail(e.getMessage());
+            throw new AssertionError(e);
         }
     }
 
@@ -87,11 +91,16 @@ public class InterceptorTest {
 
     @Test
     public void multiThread() throws Exception {
-        Token token = Mockito.mock(Token.class);
+        Token token = mock(Token.class);
+        Mockito.when(token.fresh())
+                .thenReturn(NEW_TOKEN);
+
         AsyncTest t1 = new AsyncTest(() -> singleRefresh(token)).start();
         AsyncTest t2 = new AsyncTest(() -> singleRefresh(token)).start();
         t1.join();
         t2.join();
+
+        Mockito.verify(token, Mockito.times(1)).fresh();
     }
 
     private static final String AUTHORIZATION = "Authorization";
@@ -162,6 +171,7 @@ public class InterceptorTest {
     }
 
     interface Token {
+        @NonNull
         String fresh() throws IOException;
     }
 
@@ -180,7 +190,7 @@ class AsyncTest {
     @Nullable
     private volatile AssertionError error;
 
-    public AsyncTest(Runnable test) {
+    AsyncTest(Runnable test) {
         thread = new Thread(() -> {
             try {
                 test.run();
@@ -190,15 +200,17 @@ class AsyncTest {
         });
     }
 
-    public AsyncTest start() {
+    AsyncTest start() {
+        assert thread != null;
         thread.start();
         return this;
     }
 
-    public void join() throws InterruptedException, AssertionError {
+    void join() throws InterruptedException, AssertionError {
         assert thread != null;
         thread.join();
         if (error != null) {
+            //noinspection ConstantConditions
             throw error;
         }
     }
