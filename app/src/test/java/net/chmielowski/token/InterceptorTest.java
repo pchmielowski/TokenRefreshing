@@ -78,6 +78,22 @@ public class InterceptorTest {
         Mockito.verifyNoMoreInteractions(chain);
     }
 
+    int a;
+
+    @Test
+    public void multiThread() throws Exception {
+        Thread first = new Thread(() -> {
+            Assert.assertThat(2 + 2, is(4));
+        });
+        first.start();
+        Thread second = new Thread(() -> {
+            Assert.assertThat(2 + 2, is(4));
+        });
+        second.start();
+        first.join();
+        second.join();
+    }
+
     private static final String AUTHORIZATION = "Authorization";
     private boolean tokenExpired;
 
