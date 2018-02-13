@@ -88,12 +88,10 @@ public class InterceptorTest {
     @Test
     public void multiThread() throws Exception {
         Token token = Mockito.mock(Token.class);
-        Thread first = new Thread(() -> singleRefresh(token));
-        first.start();
-        Thread second = new Thread(() -> singleRefresh(token));
-        second.start();
-        first.join();
-        second.join();
+        AsyncTest t1 = new AsyncTest(() -> singleRefresh(token)).start();
+        AsyncTest t2 = new AsyncTest(() -> singleRefresh(token)).start();
+        t1.join();
+        t2.join();
     }
 
     private static final String AUTHORIZATION = "Authorization";
@@ -182,7 +180,7 @@ class AsyncTest {
     @Nullable
     private volatile AssertionError error;
 
-    public void start(Runnable test) {
+    public AsyncTest(Runnable test) {
         thread = new Thread(() -> {
             try {
                 test.run();
@@ -190,10 +188,14 @@ class AsyncTest {
                 error = e;
             }
         });
-        thread.start();
     }
 
-    public void test() throws InterruptedException, AssertionError {
+    public AsyncTest start() {
+        thread.start();
+        return this;
+    }
+
+    public void join() throws InterruptedException, AssertionError {
         assert thread != null;
         thread.join();
         if (error != null) {
