@@ -2,8 +2,10 @@ package net.chmielowski.token;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import java.io.IOException;
 
@@ -15,10 +17,13 @@ import okhttp3.Response;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
+@RunWith(MockitoJUnitRunner.class)
 public class InterceptorTest {
+    @Mock
+    Interceptor.Chain chain;
+
     @Test
     public void happyPath() throws Exception {
-        Interceptor.Chain chain = Mockito.mock(Interceptor.Chain.class);
         Request request = new Request.Builder()
                 .header("Authorization", "First token")
                 .url("http://example.com")
@@ -41,7 +46,6 @@ public class InterceptorTest {
 
     @Test
     public void singleRefresh() throws Exception {
-        Interceptor.Chain chain = Mockito.mock(Interceptor.Chain.class);
         Request request = new Request.Builder()
                 .header("Authorization", "First token")
                 .url("http://example.com")
