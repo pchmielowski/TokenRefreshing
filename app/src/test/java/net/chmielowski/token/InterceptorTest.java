@@ -59,7 +59,7 @@ public class InterceptorTest {
                 .build();
     }
 
-    public void singleRefresh(Token mock) {
+    public void singleRefresh(RefreshingInterceptor interceptor) {
         try {
             Interceptor.Chain chain = mock(Interceptor.Chain.class);
             Request request = new Request.Builder()
@@ -71,7 +71,7 @@ public class InterceptorTest {
             Mockito.when(chain.proceed(Mockito.any()))
                     .thenReturn(createExpiredToken(request))
                     .thenReturn(create200OK(request));
-            Response response = new RefreshingInterceptor(mock).intercept(chain);
+            Response response = interceptor.intercept(chain);
             Assert.assertThat(response.code(), is(equalTo(200)));
             Mockito.verify(chain).request();
             Mockito.verify(chain, Mockito.times(2)).proceed(Mockito.any());
@@ -94,11 +94,12 @@ public class InterceptorTest {
     @Test
     public void multiThread() throws Exception {
         Token token = mock(Token.class);
+
         Mockito.when(token.fresh())
                 .thenReturn(NEW_TOKEN);
-
-        AsyncTest t1 = start(() -> singleRefresh(token));
-        AsyncTest t2 = start(() -> singleRefresh(token));
+        RefreshingInterceptor interceptor = new RefreshingInterceptor(token);
+        AsyncTest t1 = start(() -> singleRefresh(interceptor));
+        AsyncTest t2 = start(() -> singleRefresh(interceptor));
         t1.join();
         t2.join();
 
