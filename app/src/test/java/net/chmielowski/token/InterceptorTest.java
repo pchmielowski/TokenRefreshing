@@ -18,6 +18,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import static java.util.Objects.requireNonNull;
+import static net.chmielowski.token.AsyncTest.start;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
@@ -89,14 +90,15 @@ public class InterceptorTest {
                 .build();
     }
 
+    // TODO: sometimes fails
     @Test
     public void multiThread() throws Exception {
         Token token = mock(Token.class);
         Mockito.when(token.fresh())
                 .thenReturn(NEW_TOKEN);
 
-        AsyncTest t1 = new AsyncTest(() -> singleRefresh(token)).start();
-        AsyncTest t2 = new AsyncTest(() -> singleRefresh(token)).start();
+        AsyncTest t1 = start(() -> singleRefresh(token));
+        AsyncTest t2 = start(() -> singleRefresh(token));
         t1.join();
         t2.join();
 
@@ -190,7 +192,7 @@ class AsyncTest {
     @Nullable
     private volatile AssertionError error;
 
-    AsyncTest(Runnable test) {
+    private AsyncTest(Runnable test) {
         thread = new Thread(() -> {
             try {
                 test.run();
@@ -200,7 +202,11 @@ class AsyncTest {
         });
     }
 
-    AsyncTest start() {
+    static AsyncTest start(Runnable test) {
+        return new AsyncTest(test).start();
+    }
+
+    private AsyncTest start() {
         assert thread != null;
         thread.start();
         return this;
