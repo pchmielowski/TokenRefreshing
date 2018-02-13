@@ -5,7 +5,6 @@ import android.support.annotation.NonNull;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -20,16 +19,15 @@ import okhttp3.Response;
 import static java.util.Objects.requireNonNull;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.fail;
 
 @RunWith(MockitoJUnitRunner.class)
 public class InterceptorTest {
-    @Mock
-    private
-    Interceptor.Chain chain;
     private String token = "First token";
 
     @Test
     public void happyPath() throws Exception {
+        Interceptor.Chain chain = Mockito.mock(Interceptor.Chain.class);
         Request request = new Request.Builder()
                 .header("Authorization", "First token")
                 .url("http://example.com")
@@ -43,52 +41,51 @@ public class InterceptorTest {
                         .code(200)
                         .message("")
                         .build());
-        Response response = refreshToken(chain);
+
+        Response response = new RefreshingInterceptor(Mockito.mock(Token.class)).intercept(chain);
         Assert.assertThat(response.code(), is(equalTo(200)));
         Mockito.verify(chain).request();
         Mockito.verify(chain).proceed(Mockito.any());
         Mockito.verifyNoMoreInteractions(chain);
     }
 
-    @Test
-    public void singleRefresh() throws Exception {
-        Request request = new Request.Builder()
-                .header("Authorization", "First token")
-                .url("http://example.com")
-                .build();
-        Mockito.when(chain.request())
-                .thenReturn(request);
-        Mockito.when(chain.proceed(Mockito.any()))
-                .thenReturn(new Response.Builder()
-                        .request(request)
-                        .protocol(Protocol.HTTP_1_1)
-                        .code(401)
-                        .message("")
-                        .build())
-                .thenReturn(new Response.Builder()
-                        .request(request)
-                        .protocol(Protocol.HTTP_1_1)
-                        .code(200)
-                        .message("")
-                        .build());
-        Response response = refreshToken(chain);
-        Assert.assertThat(response.code(), is(equalTo(200)));
-        Mockito.verify(chain).request();
-        Mockito.verify(chain, Mockito.times(2)).proceed(Mockito.any());
-        Mockito.verifyNoMoreInteractions(chain);
+    public void singleRefresh() {
+        try {
+            Interceptor.Chain chain = Mockito.mock(Interceptor.Chain.class);
+            Request request = new Request.Builder()
+                    .header("Authorization", "First token")
+                    .url("http://example.com")
+                    .build();
+            Mockito.when(chain.request())
+                    .thenReturn(request);
+            Mockito.when(chain.proceed(Mockito.any()))
+                    .thenReturn(new Response.Builder()
+                            .request(request)
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(401)
+                            .message("")
+                            .build())
+                    .thenReturn(new Response.Builder()
+                            .request(request)
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(200)
+                            .message("")
+                            .build());
+            Response response = new RefreshingInterceptor(Mockito.mock(Token.class)).intercept(chain);
+            Assert.assertThat(response.code(), is(equalTo(200)));
+            Mockito.verify(chain).request();
+            Mockito.verify(chain, Mockito.times(2)).proceed(Mockito.any());
+            Mockito.verifyNoMoreInteractions(chain);
+        } catch (Exception e) {
+            fail();
+        }
     }
-
-    int a;
 
     @Test
     public void multiThread() throws Exception {
-        Thread first = new Thread(() -> {
-            Assert.assertThat(2 + 2, is(4));
-        });
+        Thread first = new Thread(this::singleRefresh);
         first.start();
-        Thread second = new Thread(() -> {
-            Assert.assertThat(2 + 2, is(4));
-        });
+        Thread second = new Thread(this::singleRefresh);
         second.start();
         first.join();
         second.join();
@@ -97,36 +94,46 @@ public class InterceptorTest {
     private static final String AUTHORIZATION = "Authorization";
     private boolean tokenExpired;
 
-    private Response refreshToken(final Interceptor.Chain chain) throws IOException {
-        final Request request = chain.request();
-        final Request.Builder builder = request.newBuilder();
-        final Response response = chain.proceed(builder.build());
-        if (response.code() == 401) {
-            final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
-            if (sentWithOldToken) {
-                return retryWithNewToken(chain, builder);
-            }
+    final class RefreshingInterceptor implements Interceptor {
 
-            tokenExpired = true;
-            synchronized (this) {
-                doRefreshToken();
-            }
-            builder.header(AUTHORIZATION, token());
-            return chain.proceed(builder.build());
+        final Token token;
+
+        RefreshingInterceptor(Token token) {
+            this.token = token;
         }
-        if (response.code() == 403) {
-            final String token = token();
-            final String actual = request.header(AUTHORIZATION);
-            final boolean sentWithOldToken = !Objects.equals(requireNonNull(actual), token);
-            if (sentWithOldToken || tokenExpired) {
-                return retryWithNewToken(chain, builder);
-            } else {
-                // Logout?
-                // Call onError
-                throw new RuntimeException("403 for current token");
+
+        @Override
+        public Response intercept(Chain chain) throws IOException {
+            final Request request = chain.request();
+            final Request.Builder builder = request.newBuilder();
+            final Response response = chain.proceed(builder.build());
+            if (response.code() == 401) {
+                final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
+                if (sentWithOldToken) {
+                    return retryWithNewToken(chain, builder);
+                }
+
+                tokenExpired = true;
+                synchronized (this) {
+                    doRefreshToken();
+                }
+                builder.header(AUTHORIZATION, token());
+                return chain.proceed(builder.build());
             }
+            if (response.code() == 403) {
+                final String token = token();
+                final String actual = request.header(AUTHORIZATION);
+                final boolean sentWithOldToken = !Objects.equals(requireNonNull(actual), token);
+                if (sentWithOldToken || tokenExpired) {
+                    return retryWithNewToken(chain, builder);
+                } else {
+                    // Logout?
+                    // Call onError
+                    throw new RuntimeException("403 for current token");
+                }
+            }
+            return response;
         }
-        return response;
     }
 
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
@@ -148,6 +155,10 @@ public class InterceptorTest {
             // TODO: make sure it has to be set in case of Exception
             tokenExpired = false;
         }
+    }
+
+    interface Token {
+        String fresh();
     }
 
     private String fetchToken() throws IOException {
