@@ -3,7 +3,6 @@ package net.chmielowski.token;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -21,8 +20,11 @@ import static java.util.Objects.requireNonNull;
 import static net.chmielowski.token.AsyncTest.start;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -33,20 +35,17 @@ public class InterceptorTest {
     @Test
     public void happyPath() throws Exception {
         Interceptor.Chain chain = mock(Interceptor.Chain.class);
-        Request request = new Request.Builder()
-                .header("Authorization", "First token")
-                .url("http://example.com")
-                .build();
+        Request request = createRequest();
         when(chain.request())
                 .thenReturn(request);
-        when(chain.proceed(Mockito.any()))
+        when(chain.proceed(any()))
                 .thenReturn(create200OK(request));
 
         Response response = new RefreshingInterceptor(mock(Token.class)).intercept(chain);
-        Assert.assertThat(response.code(), is(equalTo(200)));
+        assertThat(response.code(), is(equalTo(200)));
         verify(chain).request();
-        verify(chain).proceed(Mockito.any());
-        Mockito.verifyNoMoreInteractions(chain);
+        verify(chain).proceed(any());
+        verifyNoMoreInteractions(chain);
     }
 
     private static <T> T mock(Class<T> classToMock) {
@@ -62,26 +61,27 @@ public class InterceptorTest {
                 .build();
     }
 
-    public void singleRefresh(RefreshingInterceptor interceptor) {
-        try {
-            Interceptor.Chain chain = mock(Interceptor.Chain.class);
-            Request request = new Request.Builder()
-                    .header("Authorization", "First token")
-                    .url("http://example.com")
-                    .build();
-            when(chain.request())
-                    .thenReturn(request);
-            when(chain.proceed(Mockito.any()))
-                    .thenReturn(createExpiredToken(request))
-                    .thenReturn(create200OK(request));
-            Response response = interceptor.intercept(chain);
-            Assert.assertThat(response.code(), is(equalTo(200)));
-            verify(chain).request();
-            verify(chain, times(2)).proceed(Mockito.any());
-            Mockito.verifyNoMoreInteractions(chain);
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
+    public void singleRefresh(RefreshingInterceptor interceptor) throws IOException {
+        Interceptor.Chain chain = mock(Interceptor.Chain.class);
+        Request request = createRequest();
+        when(chain.request()).thenReturn(request);
+        when(chain.proceed(any()))
+                .thenReturn(createExpiredToken(request))
+                .thenReturn(create200OK(request));
+
+        Response response = interceptor.intercept(chain);
+
+        assertThat(response.code(), is(equalTo(200)));
+        verify(chain).request();
+        verify(chain, times(2)).proceed(any());
+        verifyNoMoreInteractions(chain);
+    }
+
+    private static Request createRequest() {
+        return new Request.Builder()
+                .header("Authorization", "First token")
+                .url("http://example.com")
+                .build();
     }
 
     private static Response createExpiredToken(Request request) {
@@ -93,7 +93,6 @@ public class InterceptorTest {
                 .build();
     }
 
-    // TODO: sometimes fails
     @Test
     public void multiThread() throws Exception {
         Token token = mock(Token.class);
@@ -194,19 +193,19 @@ class AsyncTest {
     @Nullable
     private Thread thread;
     @Nullable
-    private volatile AssertionError error;
+    private volatile Exception error;
 
-    private AsyncTest(Runnable test) {
+    private AsyncTest(ThrowingRunnable test) {
         thread = new Thread(() -> {
             try {
                 test.run();
-            } catch (AssertionError e) {
+            } catch (Exception e) {
                 error = e;
             }
         });
     }
 
-    static AsyncTest start(Runnable test) {
+    static AsyncTest start(ThrowingRunnable test) {
         return new AsyncTest(test).start();
     }
 
@@ -216,12 +215,17 @@ class AsyncTest {
         return this;
     }
 
-    void join() throws InterruptedException, AssertionError {
+    void join() throws Exception {
         assert thread != null;
         thread.join();
         if (error != null) {
             //noinspection ConstantConditions
             throw error;
         }
+    }
+
+    @FunctionalInterface
+    interface ThrowingRunnable {
+        void run() throws Exception;
     }
 }
