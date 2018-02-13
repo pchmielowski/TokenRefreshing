@@ -1,6 +1,7 @@
 package net.chmielowski.token;
 
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -53,7 +54,7 @@ public class InterceptorTest {
                 .build();
     }
 
-    public void singleRefresh() {
+    public void singleRefresh(Token mock) {
         try {
             Interceptor.Chain chain = Mockito.mock(Interceptor.Chain.class);
             Request request = new Request.Builder()
@@ -65,13 +66,13 @@ public class InterceptorTest {
             Mockito.when(chain.proceed(Mockito.any()))
                     .thenReturn(createExpiredToken(request))
                     .thenReturn(create200OK(request));
-            Response response = new RefreshingInterceptor(Mockito.mock(Token.class)).intercept(chain);
+            Response response = new RefreshingInterceptor(mock).intercept(chain);
             Assert.assertThat(response.code(), is(equalTo(200)));
             Mockito.verify(chain).request();
             Mockito.verify(chain, Mockito.times(2)).proceed(Mockito.any());
             Mockito.verifyNoMoreInteractions(chain);
         } catch (Exception e) {
-            fail();
+            fail(e.getMessage());
         }
     }
 
@@ -86,9 +87,10 @@ public class InterceptorTest {
 
     @Test
     public void multiThread() throws Exception {
-        Thread first = new Thread(this::singleRefresh);
+        Token token = Mockito.mock(Token.class);
+        Thread first = new Thread(() -> singleRefresh(token));
         first.start();
-        Thread second = new Thread(this::singleRefresh);
+        Thread second = new Thread(() -> singleRefresh(token));
         second.start();
         first.join();
         second.join();
@@ -137,6 +139,23 @@ public class InterceptorTest {
             }
             return response;
         }
+
+        private void doRefreshToken() {
+            if (!tokenExpired) {
+                return;
+            }
+            try {
+                storeToken(token.fresh());
+            } catch (IOException e) {
+                // TODO: rethrow?
+                // TODO: make simulation with throwing fake TimeoutError
+                e.printStackTrace();
+            } finally {
+                // TODO: make sure it has to be set in case of Exception
+                tokenExpired = false;
+            }
+        }
+
     }
 
     private Response retryWithNewToken(Interceptor.Chain chain, Request.Builder builder) throws IOException {
@@ -144,29 +163,8 @@ public class InterceptorTest {
         return chain.proceed(builder.build());
     }
 
-    private void doRefreshToken() {
-        if (!tokenExpired) {
-            return;
-        }
-        try {
-            this.storeToken(fetchToken());
-        } catch (IOException e) {
-            // TODO: rethrow?
-            // TODO: make simulation with throwing fake TimeoutError
-            e.printStackTrace();
-        } finally {
-            // TODO: make sure it has to be set in case of Exception
-            tokenExpired = false;
-        }
-    }
-
     interface Token {
-        String fresh();
-    }
-
-    private String fetchToken() throws IOException {
-        // TODO: API call
-        return "New token";
+        String fresh() throws IOException;
     }
 
     private String token() {
@@ -175,5 +173,31 @@ public class InterceptorTest {
 
     private void storeToken(@NonNull String token) {
         this.token = token;
+    }
+}
+
+class AsyncTest {
+    @Nullable
+    private Thread thread;
+    @Nullable
+    private volatile AssertionError error;
+
+    public void start(Runnable test) {
+        thread = new Thread(() -> {
+            try {
+                test.run();
+            } catch (AssertionError e) {
+                error = e;
+            }
+        });
+        thread.start();
+    }
+
+    public void test() throws InterruptedException, AssertionError {
+        assert thread != null;
+        thread.join();
+        if (error != null) {
+            throw error;
+        }
     }
 }
