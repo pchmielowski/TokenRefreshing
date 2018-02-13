@@ -35,18 +35,22 @@ public class InterceptorTest {
         Mockito.when(chain.request())
                 .thenReturn(request);
         Mockito.when(chain.proceed(Mockito.any()))
-                .thenReturn(new Response.Builder()
-                        .request(request)
-                        .protocol(Protocol.HTTP_1_1)
-                        .code(200)
-                        .message("")
-                        .build());
+                .thenReturn(create200OK(request));
 
         Response response = new RefreshingInterceptor(Mockito.mock(Token.class)).intercept(chain);
         Assert.assertThat(response.code(), is(equalTo(200)));
         Mockito.verify(chain).request();
         Mockito.verify(chain).proceed(Mockito.any());
         Mockito.verifyNoMoreInteractions(chain);
+    }
+
+    private static Response create200OK(Request request) {
+        return new Response.Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .build();
     }
 
     public void singleRefresh() {
@@ -59,18 +63,8 @@ public class InterceptorTest {
             Mockito.when(chain.request())
                     .thenReturn(request);
             Mockito.when(chain.proceed(Mockito.any()))
-                    .thenReturn(new Response.Builder()
-                            .request(request)
-                            .protocol(Protocol.HTTP_1_1)
-                            .code(401)
-                            .message("")
-                            .build())
-                    .thenReturn(new Response.Builder()
-                            .request(request)
-                            .protocol(Protocol.HTTP_1_1)
-                            .code(200)
-                            .message("")
-                            .build());
+                    .thenReturn(createExpiredToken(request))
+                    .thenReturn(create200OK(request));
             Response response = new RefreshingInterceptor(Mockito.mock(Token.class)).intercept(chain);
             Assert.assertThat(response.code(), is(equalTo(200)));
             Mockito.verify(chain).request();
@@ -79,6 +73,15 @@ public class InterceptorTest {
         } catch (Exception e) {
             fail();
         }
+    }
+
+    private static Response createExpiredToken(Request request) {
+        return new Response.Builder()
+                .request(request)
+                .protocol(Protocol.HTTP_1_1)
+                .code(401)
+                .message("Unauthorized")
+                .build();
     }
 
     @Test
