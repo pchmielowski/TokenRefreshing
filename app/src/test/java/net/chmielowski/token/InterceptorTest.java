@@ -6,7 +6,9 @@ import android.support.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -26,6 +28,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 @RunWith(MockitoJUnitRunner.class)
 public class InterceptorTest {
@@ -49,7 +52,7 @@ public class InterceptorTest {
     }
 
     private static <T> T mock(Class<T> classToMock) {
-        return Mockito.mock(classToMock);
+        return Mockito.mock(classToMock, withSettings().verboseLogging());
     }
 
     private static Response create200OK(Request request) {
@@ -61,14 +64,8 @@ public class InterceptorTest {
                 .build();
     }
 
-    public void singleRefresh(RefreshingInterceptor interceptor) throws IOException {
+    public void singleRefresh(RefreshingInterceptor interceptor, Interceptor.Chain chain) throws IOException {
         // Arrange
-        Interceptor.Chain chain = mock(Interceptor.Chain.class);
-        Request request = createRequest();
-        when(chain.request()).thenReturn(request);
-        when(chain.proceed(any()))
-                .thenReturn(createExpiredToken(request))
-                .thenReturn(create200OK(request));
 
         // Act
         Response response = interceptor.intercept(chain);
@@ -80,11 +77,39 @@ public class InterceptorTest {
         verifyNoMoreInteractions(chain);
     }
 
-    private static Request createRequest() {
-        return new Request.Builder()
-                .header("Authorization", "First token")
-                .url("http://example.com")
-                .build();
+    @Test
+    public void multiThread() throws Exception {
+        Token token = mock(Token.class);
+
+        RefreshedToken refreshToken = new RefreshedToken();
+        when(token.fresh())
+                .thenAnswer(refreshToken);
+        RefreshingInterceptor interceptor = new RefreshingInterceptor(token);
+
+
+        Interceptor.Chain chain = mock(Interceptor.Chain.class);
+        Request request = createRequest();
+        when(chain.request()).thenReturn(request, request).thenThrow(AssertionError.class);
+        when(chain.proceed(any()))
+                // Requests with old token
+                .thenReturn(createExpiredToken(request))
+                .then(__ -> {
+                    refreshToken.triggerResponse();
+                    return createExpiredToken(request);
+                })
+
+                // Requests with new token
+                .thenReturn(create200OK(request))
+                .thenReturn(create200OK(request))
+                .thenThrow(AssertionError.class);
+
+
+        AsyncTest t1 = start(() -> singleRefresh(interceptor, chain));
+        AsyncTest t2 = start(() -> singleRefresh(interceptor, chain));
+        t1.join();
+        t2.join();
+
+        verify(token, times(1)).fresh();
     }
 
     private static Response createExpiredToken(Request request) {
@@ -96,23 +121,35 @@ public class InterceptorTest {
                 .build();
     }
 
-    @Test
-    public void multiThread() throws Exception {
-        Token token = mock(Token.class);
-
-        when(token.fresh())
-                .thenReturn(NEW_TOKEN);
-        RefreshingInterceptor interceptor = new RefreshingInterceptor(token);
-        AsyncTest t1 = start(() -> singleRefresh(interceptor));
-        AsyncTest t2 = start(() -> singleRefresh(interceptor));
-        t1.join();
-        t2.join();
-
-        verify(token, times(1)).fresh();
+    private static Request createRequest() {
+        return new Request.Builder()
+                .header("Authorization", "First token")
+                .url("http://example.com")
+                .build();
     }
 
     private static final String AUTHORIZATION = "Authorization";
     private boolean tokenExpired;
+
+    private static class RefreshedToken implements Answer<String> {
+
+        @Override
+        public String answer(InvocationOnMock invocation) throws Throwable {
+            System.out.println("request for refresh token");
+            synchronized (this) {
+                wait();
+            }
+            System.out.println("will triggerResponse with refreshed token");
+            return NEW_TOKEN;
+        }
+
+        void triggerResponse() throws InterruptedException {
+            System.out.println("triggerResponse() called");
+            synchronized (this) {
+                notify();
+            }
+        }
+    }
 
     final class RefreshingInterceptor implements Interceptor {
 
