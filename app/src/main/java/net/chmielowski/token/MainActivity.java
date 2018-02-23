@@ -141,9 +141,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             tokenExpired = true;
-            synchronized (this) {
-                doRefreshToken();
-            }
+            waitForFreshToken();
             builder.header(AUTHORIZATION, token());
             return chain.proceed(builder.build());
         }
@@ -176,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
         return chain.proceed(builder.build());
     }
 
-    private void doRefreshToken() {
+    private synchronized void waitForFreshToken() {
         if (!tokenExpired) {
             return;
         }
