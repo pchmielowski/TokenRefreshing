@@ -150,7 +150,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 // Logout?
                 // Call onError
-                throw new RuntimeException("403 for current token");
+                throw new RuntimeException("Invalid-token for current one");
             }
         }
         return response;
