@@ -134,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
         final Request request = chain.request();
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
-        if (response.code() == 401) {
+        if (tokenExpired(response)) {
             final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
             if (sentWithOldToken) {
                 return retryWithNewToken(chain, builder);
@@ -145,7 +145,7 @@ public class MainActivity extends AppCompatActivity {
             builder.header(AUTHORIZATION, token());
             return chain.proceed(builder.build());
         }
-        if (response.code() == 403) {
+        if (tokenInvalid(response)) {
             final String token = token();
             final String actual = request.header(AUTHORIZATION);
             final boolean sentWithOldToken = !Objects.equals(requireNonNull(actual), token);
@@ -158,6 +158,14 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return response;
+    }
+
+    private static boolean tokenInvalid(final Response response) {
+        return response.code() == 403;
+    }
+
+    private static boolean tokenExpired(final Response response) {
+        return response.code() == 401;
     }
 
     static int generateColor() {
