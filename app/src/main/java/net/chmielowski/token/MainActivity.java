@@ -135,8 +135,7 @@ public class MainActivity extends AppCompatActivity {
         final Request.Builder builder = request.newBuilder();
         final Response response = chain.proceed(builder.build());
         if (tokenExpired(response)) {
-            final boolean sentWithOldToken = !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
-            if (sentWithOldToken) {
+            if (requestHadOldToken(request)) {
                 return retryWithNewToken(chain, builder);
             }
 
@@ -146,10 +145,7 @@ public class MainActivity extends AppCompatActivity {
             return chain.proceed(builder.build());
         }
         if (tokenInvalid(response)) {
-            final String token = token();
-            final String actual = request.header(AUTHORIZATION);
-            final boolean sentWithOldToken = !Objects.equals(requireNonNull(actual), token);
-            if (sentWithOldToken || tokenExpired) {
+            if (requestHadOldToken(request) || tokenExpired) {
                 return retryWithNewToken(chain, builder);
             } else {
                 // Logout?
@@ -158,6 +154,10 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return response;
+    }
+
+    private boolean requestHadOldToken(final Request request) {
+        return !Objects.equals(requireNonNull(request.header(AUTHORIZATION)), token());
     }
 
     private static boolean tokenInvalid(final Response response) {
